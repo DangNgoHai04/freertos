@@ -1,0 +1,4 @@
+[submodule "Source"]
+	path = Source
+	url = https://github.com/DangNgoHai04/FreeRTOS-Kernel.git
+	branch = licheerv-nano
