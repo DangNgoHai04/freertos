@@ -18,6 +18,8 @@
 #include "memmap.h"
 
 #include "comm.h"
+// #include "spi_smoke_test.h"
+#include "spi_ext_loopback.h"
 #include "cvi_spinlock.h"
 
 //#define __DEBUG__
@@ -148,6 +150,9 @@ void main_cvirtos(void)
 	printf("create cvi task\n");
 
 	request_irq(MBOX_INT_C906_2ND, prvQueueISR, 0, "mailbox", (void *)0);
+
+	// [ADDED]: Khoi dong kiem thu SPI0 External Physical Loopback (SDO <-> SDI)
+	start_spi_ext_loopback_task();
 
 #ifdef FAST_IMAGE_ENABLE
 	start_camera(0);
