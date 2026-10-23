@@ -19,6 +19,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SAFETY_FLAGS}")
 # add hal folder here
 set(build_list
 	uart
+	spi
 	pinmux
 	# i2c
 	snsr_i2c

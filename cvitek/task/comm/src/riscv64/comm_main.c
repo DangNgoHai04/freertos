@@ -18,7 +18,6 @@
 #include "memmap.h"
 
 #include "comm.h"
-// #include "spi_smoke_test.h"
 #include "spi_ext_loopback.h"
 #include "cvi_spinlock.h"
 

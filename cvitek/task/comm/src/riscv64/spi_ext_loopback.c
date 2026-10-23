@@ -5,7 +5,6 @@
 #include "task.h"
 #include "mmio.h"
 #include "arch_helpers.h"
-// #include "spi_smoke_test.h"
 #include "spi_ext_loopback.h"
 
 #define SPI0_BASE              0x04180000U
