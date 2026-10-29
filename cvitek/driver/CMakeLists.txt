@@ -79,7 +79,7 @@ set(driver_list
 )
 
 if (CHIP STREQUAL "cv181x")
-list(APPEND driver_list spi) // add spi driver for cv181x
+list(APPEND driver_list spi) # add SPI driver for cv181x
 endif()
 
 else()

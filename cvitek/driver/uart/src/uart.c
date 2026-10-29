@@ -129,12 +129,9 @@ int uart_put_buff(char *buf)
 	if (uart_putc_enable) {
 		uart_puts("RT: ");
 
+		//[ADD] lay toan bo buffer ra va gui ra uart
 		while (buf[count]) {
-			if (uart_putc(buf[count]) != '\n') {
-				count++;
-			} else {
-				break;
-	        }
+			uart_putc(buf[count++]);
 		}
 	} else {
 
