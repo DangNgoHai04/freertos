@@ -77,6 +77,11 @@ set(driver_list
 	rtos_cmdqu
 	fast_image
 )
+
+if (CHIP STREQUAL "cv181x")
+list(APPEND driver_list spi) // add spi driver for cv181x
+endif()
+
 else()
 set(DRIVER_BASE_DIR ${CMAKE_DRIVER_DIR}/base)
 set(DRIVER_SYS_DIR ${CMAKE_DRIVER_DIR}/sys)
