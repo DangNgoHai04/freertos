@@ -35,12 +35,23 @@
 #define I2C3_BASE				0x4030000
 #define I2C4_BASE				0x4040000
 
+/* SPI (DesignWare APB SSI) */
+#define SPI0_BASE				0x04180000
+#define SPI1_BASE				0x04190000
+#define SPI2_BASE				0x041A0000
+#define SPI3_BASE				0x041B0000
+
+/* MIPI DSI D-PHY (from TRM Address-Space Mapping) */
+#define DSI_PHY_BASE				0x0A0D1000
+
 /* Clock */
 #define REG_CLK_ENABLE_REG0                     (CLKGEN_BASE)
 #define REG_CLK_ENABLE_REG1                     (CLKGEN_BASE + 0x4)
 #define REG_CLK_ENABLE_REG2                     (CLKGEN_BASE + 0x8)
+#define REG_CLK_ENABLE_REG3                     (CLKGEN_BASE + 0xC)
 #define REG_CLK_BYPASS_SEL_REG                  (CLKGEN_BASE + 0x30)
 #define REG_CLK_BYPASS_SEL_REG2                 (CLKGEN_BASE + 0x34)
+#define REG_CLK_DIV_SPI_REG                     (CLKGEN_BASE + 0x100)
 #define REG_CLK_DIV0_CTL_CA53_REG               (CLKGEN_BASE + 0x40)
 #define REG_CLK_DIV0_CTL_CPU_AXI0_REG           (CLKGEN_BASE + 0x48)
 #define REG_CLK_DIV0_CTL_TPU_AXI_REG            (CLKGEN_BASE + 0x54)
