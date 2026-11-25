@@ -31,6 +31,9 @@
 
 extern struct transfer_config_t transfer_config;
 struct trace_snapshot_t snapshot;
+#ifdef THERMAL_TINY1C
+extern void thermal_service_task(void *);
+#endif
 
 typedef struct _TASK_CTX_S {
 	char        name[32];
@@ -45,6 +48,7 @@ typedef struct _TASK_CTX_S {
  * Function prototypes
  ****************************************************************************/
 void prvQueueISR(void);
+void comm_poll_mailbox(void);
 void prvCmdQuRunTask(void *pvParameters);
 
 /****************************************************************************
@@ -77,9 +81,14 @@ TASK_CTX_S gTaskCtx[E_QUEUE_MAX] = {
 	},
 	{
 		.name = "CAMERA",
-		.stack_size = configMINIMAL_STACK_SIZE,
 		.priority = tskIDLE_PRIORITY + 3,
+#ifdef THERMAL_TINY1C
+		.stack_size = configMINIMAL_STACK_SIZE * 4,
+		.runTask = thermal_service_task,
+#else
+		.stack_size = configMINIMAL_STACK_SIZE,
 		.runTask = NULL,
+#endif
 		.queLength = 1,
 		.queHandle = NULL,
 	},
@@ -148,6 +157,10 @@ void main_cvirtos(void)
 {
 	printf("create cvi task\n");
 
+	mbox_reg = (struct mailbox_set_register *)MAILBOX_REG_BASE;
+	mbox_done_reg = (struct mailbox_done_register *)(MAILBOX_REG_BASE + 2);
+	mailbox_context = (unsigned long *)(MAILBOX_REG_BUFF);
+
 	request_irq(MBOX_INT_C906_2ND, prvQueueISR, 0, "mailbox", (void *)0);
 
 
@@ -206,7 +219,10 @@ void prvCmdQuRunTask(void *pvParameters)
 	printf("prvCmdQuRunTask run\n");
 
 	for (;;) {
-		xQueueReceive(gTaskCtx[E_QUEUE_CMDQU].queHandle, &rtos_cmdq, portMAX_DELAY);
+		comm_poll_mailbox();
+		while (xQueueReceive(gTaskCtx[E_QUEUE_CMDQU].queHandle, &rtos_cmdq, 1U) != pdPASS) {
+			comm_poll_mailbox();
+		}
 
 		switch (rtos_cmdq.cmd_id) {
 #if ( configUSE_TRACE_FACILITY == 1 )
@@ -320,9 +336,79 @@ send_label:
 				drv_spin_unlock_irqrestore(&mailbox_lock, flags);
 				if (valid >= MAILBOX_MAX_NUM) {
 				    printf("No valid mailbox is available\n");
-				    return -1;
 				}
 				break;
+		}
+	}
+}
+
+void comm_poll_mailbox(void)
+{
+	unsigned char set_val;
+	unsigned char valid_val;
+	int i;
+	int count = 0;
+	int flags;
+	cmdqu_t *cmdq;
+	cmdqu_t pending[MAILBOX_MAX_NUM];
+
+	if (!mbox_reg || !mailbox_context)
+		return;
+
+	set_val = mbox_reg->cpu_mbox_set[RECEIVE_CPU].cpu_mbox_int_int.mbox_int;
+	if (!set_val)
+		return;
+
+	drv_spin_lock_irqsave(&mailbox_lock, flags);
+	if (flags == MAILBOX_LOCK_FAILED)
+		return;
+
+	set_val = mbox_reg->cpu_mbox_set[RECEIVE_CPU].cpu_mbox_int_int.mbox_int;
+	for (i = 0; i < MAILBOX_MAX_NUM; i++) {
+		valid_val = set_val & (1U << i);
+		if (valid_val) {
+			cmdqu_t rtos_cmdq;
+			cmdq = (cmdqu_t *)(mailbox_context) + i;
+
+			mbox_reg->cpu_mbox_set[RECEIVE_CPU].cpu_mbox_int_clr.mbox_int_clr = valid_val;
+			mbox_reg->cpu_mbox_en[RECEIVE_CPU].mbox_info &= ~valid_val;
+
+			*((unsigned long *)&rtos_cmdq) = *((unsigned long *)cmdq);
+			*((unsigned long *)cmdq) = 0;
+
+			if (rtos_cmdq.resv.valid.linux_valid == 1) {
+				pending[count++] = rtos_cmdq;
+			}
+		}
+	}
+	drv_spin_unlock_irqrestore(&mailbox_lock, flags);
+
+	for (i = 0; i < count; i++) {
+		switch (pending[i].ip_id) {
+		case IP_ISP:
+			xQueueSend(gTaskCtx[E_QUEUE_ISP].queHandle, &pending[i], 0U);
+			break;
+		case IP_VCODEC:
+			xQueueSend(gTaskCtx[E_QUEUE_VCODEC].queHandle, &pending[i], 0U);
+			break;
+		case IP_VI:
+			xQueueSend(gTaskCtx[E_QUEUE_VI].queHandle, &pending[i], 0U);
+			break;
+		case IP_RGN:
+			xQueueSend(gTaskCtx[E_QUEUE_RGN].queHandle, &pending[i], 0U);
+			break;
+		case IP_AUDIO:
+			xQueueSend(gTaskCtx[E_QUEUE_AUDIO].queHandle, &pending[i], 0U);
+			break;
+		case IP_SYSTEM:
+			xQueueSend(gTaskCtx[E_QUEUE_CMDQU].queHandle, &pending[i], 0U);
+			break;
+		case IP_CAMERA:
+			xQueueSend(gTaskCtx[E_QUEUE_CAMERA].queHandle, &pending[i], 0U);
+			break;
+		default:
+			printf("unknown ip_id =%d cmd_id=%d\n", pending[i].ip_id, pending[i].cmd_id);
+			break;
 		}
 	}
 }

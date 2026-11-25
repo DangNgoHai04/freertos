@@ -33,6 +33,10 @@ else()
     set(CVI_TASK_LIBS demo)
 endif()
 
+if(THERMAL_TINY1C)
+    list(APPEND CVI_TASK_LIBS thermal_tiny1c)
+endif()
+
 # search library from install/lib folder
 file(GLOB_RECURSE CVI_LIBS ${CMAKE_INSTALL_PREFIX}/*.a)
 
