@@ -23,6 +23,7 @@ typedef struct {
     uint32_t half_us, stretch_us;
     uint64_t deadline;
     bb_status_t cleanup; /* Lỗi STOP giữ riêng, không che lỗi gốc. */
+    uint8_t nack_phase; /* 0=địa chỉ msg0, 1..=byte dữ liệu msg0; bit7=msg1; 0xff=không NACK. */
 } bb_master_t;
 bb_status_t bb_init(bb_master_t *, const bb_io_t *, uint32_t hz, uint32_t stretch_us);
 bb_status_t bb_transfer(bb_master_t *, bb_msg_t *, size_t count, uint32_t timeout_us);

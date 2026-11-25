@@ -73,13 +73,16 @@ bb_status_t bb_transfer(bb_master_t *b,bb_msg_t *m,size_t count,uint32_t timeout
     if(!b||!b->io.drive||!m||!count||!timeout) return BB_INVALID;
     for(size_t i=0;i<count;i++)
         if(m[i].addr>0x7f || (m[i].len&&!m[i].data) || (m[i].read&&!m[i].len)) return BB_INVALID;
-    b->deadline=now(b)+timeout; b->cleanup=BB_OK;
+    b->deadline=now(b)+timeout; b->cleanup=BB_OK; b->nack_phase=0xffU;
     bb_status_t r=BB_OK;
     for(size_t i=0;i<count&&!r;i++) {
         r=start(b); if(r)break;
         r=write_byte(b,(uint8_t)((m[i].addr<<1)|m[i].read));
-        for(size_t j=0;j<m[i].len&&!r;j++)
+        if(r==BB_NACK) b->nack_phase=(uint8_t)(i ? 0x80U : 0U);
+        for(size_t j=0;j<m[i].len&&!r;j++) {
             r=m[i].read ? read_byte(b,&m[i].data[j],j+1==m[i].len) : write_byte(b,m[i].data[j]);
+            if(r==BB_NACK) b->nack_phase=(uint8_t)((i ? 0x80U : 0U) | (uint8_t)(j+1U));
+        }
     }
     /* Không cướp bus đang bị giữ hoặc sau arbitration loss. Timeout nhả dây;
      * recovery là quyết định riêng của tầng trên, không kéo dài deadline. */

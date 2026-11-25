@@ -5,9 +5,14 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "mmio.h"
+#include <stdio.h>
 #define GPIOA_DR 0x03020000UL
 #define GPIOA_DDR 0x03020004UL
 #define GPIOA_EXT 0x03020050UL
+#define SPK_EN_IOBLK 0x03001908UL
+#define EMMC_DAT3_IOBLK 0x03001924UL
+#define PAD_PU (1U<<2)
+#define PAD_PD (1U<<3)
 #define MASK ((1U<<15)|(1U<<27))
 static uint32_t tick_hz;
 static bool claimed;
@@ -41,13 +46,26 @@ bb_status_t bb_gpio_platform_init(bb_io_t *io,uint32_t hz,bool owned)
     /* Nhả hướng trước, preload latch=0 rồi mới mux sang GPIO: tránh xung cao chủ động. */
     mmio_write_32(GPIOA_DDR,mmio_read_32(GPIOA_DDR)&~MASK);
     mmio_write_32(GPIOA_DR,mmio_read_32(GPIOA_DR)&~MASK);
+    /* SPK_EN/A15 mặc định có pull-down; open-drain sẽ đứng LOW nếu thiếu pull-up.
+     * Chọn pull-up về chính miền VDDIO của pad, không ép GPIO ra mức HIGH. */
+    mmio_write_32(SPK_EN_IOBLK,(mmio_read_32(SPK_EN_IOBLK)&~(PAD_PU|PAD_PD))|PAD_PU);
+    mmio_write_32(EMMC_DAT3_IOBLK,(mmio_read_32(EMMC_DAT3_IOBLK)&~(PAD_PU|PAD_PD))|PAD_PU);
     /* SPK_EN/A15 và EMMC_DAT3/A27 đều có function GPIO=3. */
     mmio_write_32(0x0300103CUL,(mmio_read_32(0x0300103CUL)&~7U)|3U);
     mmio_write_32(0x03001058UL,(mmio_read_32(0x03001058UL)&~7U)|3U);
     taskEXIT_CRITICAL();
     if((mmio_read_32(0x0300103CUL)&7U)!=3U ||
        (mmio_read_32(0x03001058UL)&7U)!=3U ||
-       (mmio_read_32(GPIOA_DDR)&MASK)) return BB_NOT_READY;
+       (mmio_read_32(GPIOA_DDR)&MASK) ||
+       (mmio_read_32(SPK_EN_IOBLK)&(PAD_PU|PAD_PD))!=PAD_PU ||
+       (mmio_read_32(EMMC_DAT3_IOBLK)&(PAD_PU|PAD_PD))!=PAD_PU) return BB_NOT_READY;
+    delay_us(NULL,50);
+    uint32_t levels=mmio_read_32(GPIOA_EXT)&MASK;
+    if(levels!=MASK) {
+        printf("[T0-I2C] Idle line LOW: SCL=%d SDA=%d; check pull-ups, VDDIO, wiring and pin owner\n",
+               (int)((levels>>15)&1U),(int)((levels>>27)&1U));
+        return BB_NOT_READY;
+    }
     claimed=true;
     *io=(bb_io_t){.drive=drive,.sample=sample,.now_us=time_us,.delay_us=delay_us};
     return BB_OK;
